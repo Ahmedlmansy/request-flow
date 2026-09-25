@@ -1,4 +1,4 @@
-import type { RequestStatus } from '@/features/requests/api/requests.types'
+import type { RequestStatus } from '../../api/requests.types';
 import { RequestSearch } from './RequestSearch'
 import { RequestSort } from './RequestSort'
 import { RequestStatusSelect } from './RequestStatusSelect'
