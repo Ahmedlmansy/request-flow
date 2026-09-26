@@ -1,11 +1,3 @@
-/* eslint-disable */
-/* tslint:disable */
-
-/**
- * Mock Service Worker.
- * @see https://github.com/mswjs/msw
- * - Please do NOT modify this file.
- */
 
 const PACKAGE_VERSION = '2.15.0'
 const INTEGRITY_CHECKSUM = '03cb67ac84128e63d7cd722a6e5b7f1e'

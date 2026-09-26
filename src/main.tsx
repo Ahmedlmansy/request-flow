@@ -2,12 +2,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
-import "./index.css"
+
 async function enableMocking() {
-  if (import.meta.env.DEV) {
-    const { worker } = await import("./mocks/browser");
-    return worker.start({ onUnhandledRequest: "bypass" });
-  }
+
+  const { worker } = await import("./mocks/browser");
+  return worker.start({ onUnhandledRequest: "bypass" });
 }
 
 enableMocking().then(() => {
