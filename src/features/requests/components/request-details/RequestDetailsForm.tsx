@@ -1,5 +1,4 @@
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -22,6 +21,23 @@ interface RequestDetailsFormProps {
     key: Key,
     value: RequestDetailValues[Key],
   ) => void;
+}
+
+const OWNER_OPTIONS = [
+  "Ahmed Mahmoud",
+  "Sara Ali",
+  "Omar Hassan",
+  "Nour El-Din",
+  "Yasmin Khaled",
+  "Karim Fathy",
+  "Mona Samir",
+  "Tarek Mostafa",
+  "Hana Ibrahim",
+];
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
 export function RequestDetailsForm({
@@ -101,20 +117,14 @@ export function RequestDetailsForm({
           >
             <SelectTrigger className="relative h-9 rounded-lg border-transparent bg-[#f2f3ff] pl-11 focus:ring-2 focus:ring-[#2563eb]/40">
               <div className="absolute left-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#2563eb] text-[11px] font-bold text-white">
-                AM
+                {getInitials(values.owner)}
               </div>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {[
-                ["ahmed", "Ahmed Mahmoud (Operations Lead)"],
-                ["sarah", "Sarah Johnson (Finance Analyst)"],
-                ["michael", "Michael Chen (Platform Specialist)"],
-                ["emma", "Emma Wilson (Legal Counsel)"],
-                ["david", "David Brown (DevOps)"],
-              ].map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
+              {OWNER_OPTIONS.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -132,12 +142,6 @@ export function RequestDetailsForm({
               Markdown supported
             </span>
           </div>
-          <Textarea
-            value={values.description}
-            onChange={(event) => onChange("description", event.target.value)}
-            rows={5}
-            className="resize-none rounded-lg border-transparent bg-[#f2f3ff] leading-relaxed focus-visible:bg-white focus-visible:ring-2 focus-visible:ring-[#2563eb]/40"
-          />
         </div>
       </CardContent>
     </Card>

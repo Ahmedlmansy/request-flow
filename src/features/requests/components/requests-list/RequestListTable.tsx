@@ -19,15 +19,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import {
-  priorityConfig,
-  statusConfig,
-} from "@/features/requests/data/requests.data";
 import type {
   RequestListItem,
   RequestListStatus,
 } from "@/features/requests/types/request-list.types";
 import { RequestPagination } from "./RequestPagination";
+import { statusConfig } from "../../api/requests.data";
 
 interface RequestListTableProps {
   requests: RequestListItem[];
@@ -158,9 +155,7 @@ function RequestRow({
   onDelete?: (request: RequestListItem) => void;
 }) {
   const status = statusConfig[request.status];
-  const priority = priorityConfig[request.priority];
   const StatusIcon = status.icon;
-  const PriorityIcon = priority.icon;
   const navigate = useNavigate();
 
   return (
@@ -250,15 +245,7 @@ function RequestRow({
         )}
       </TableCell>
       <TableCell>
-        <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold",
-            priority.className,
-          )}
-        >
-          <PriorityIcon className="h-3 w-3" />
-          {priority.label}
-        </span>
+
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">

@@ -1,25 +1,15 @@
-import type { ReactNode } from 'react'
+import type {
+  RequestPriority,
+  RequestStatus,
+} from "@/features/requests/api/requests.types";
 
-export type RequestDetailStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled'
-export type RequestDetailPriority = 'high' | 'medium' | 'low'
+
+export type RequestDetailStatus = RequestStatus;
+export type RequestDetailPriority = RequestPriority;
 
 export interface RequestDetailValues {
-  title: string
-  status: RequestDetailStatus
-  priority: RequestDetailPriority
-  owner: string
-  description: string
-}
-
-export interface RequestDetailMetadata {
-  label: string
-  value: ReactNode
-  sub?: string
-}
-
-export interface RequestAuditEntry {
-  title: string
-  time: string
-  description: string
-  color: string
+  title: string;
+  status: RequestDetailStatus;
+  priority: RequestDetailPriority;
+  owner: string;
 }

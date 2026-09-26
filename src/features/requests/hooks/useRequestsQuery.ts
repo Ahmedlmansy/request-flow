@@ -9,7 +9,7 @@ export function useRequestsQuery(params: GetRequestsParams) {
     queryKey: requestsKeys.list(params),
     queryFn: () => getRequests(params),
     placeholderData: keepPreviousData,
-    refetchInterval: 30_000, 
+    refetchInterval: 30_000 , 
     refetchIntervalInBackground: false, 
   });
 }
