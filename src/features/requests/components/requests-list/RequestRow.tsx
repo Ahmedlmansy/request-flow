@@ -12,7 +12,6 @@ export function RequestRow({ request }: { request: Request }) {
         >
           {request.title}
         </Link>
-        <p className="mt-1 text-xs text-slate-500">{request.description}</p>
       </td>
       <td className="px-4 py-3 capitalize">{request.status}</td>
       <td className="px-4 py-3 text-slate-500">

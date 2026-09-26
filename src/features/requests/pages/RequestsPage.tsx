@@ -1,39 +1,217 @@
-import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { RefreshCw, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { demoRequests } from '@/features/requests/data/requests.data'
-import { RequestListTable } from '@/features/requests/components/requests-list/RequestListTable'
-import { RequestsAsyncStates } from '@/features/requests/components/requests-list/RequestsAsyncStates'
-import { RequestsFilters } from '@/features/requests/components/requests-list/RequestsFilters'
-import { RequestsHeader } from '@/features/requests/components/requests-list/RequestsHeader'
-import type { RequestListItem, RequestListStatus } from '@/features/requests/types/request-list.types'
+import { useCallback, useMemo } from "react";
+import { motion } from "framer-motion";
+import { useRequestsUrlState } from "@/features/requests/hooks/useRequestsUrlState";
+import { useRequestsQuery } from "@/features/requests/hooks/useRequestsQuery";
+import { useClampPage } from "@/features/requests/hooks/useClampPage";
+
+import { RequestListTable } from "@/features/requests/components/requests-list/RequestListTable";
+import { RequestsAsyncStates } from "@/features/requests/components/requests-list/RequestsAsyncStates";
+
+import { RequestFilters } from "@/features/requests/components/requests-list/RequestFilters";
+import { RequestsHeader } from "@/features/requests/components/requests-list/RequestsHeader";
+import type { RequestStatus } from "@/features/requests/api/requests.types";
+import type {
+  RequestListItem,
+  RequestListStatus,
+} from "@/features/requests/types/request-list.types";
+import { useUpdateRequestMutation } from "../hooks/useUpdateRequestMutation";
+import { mapRequestToListItem } from "@/lib/mapRequestToListItem";
+import { useDeleteRequestMutation } from "../hooks/useDeleteRequestMutation";
 
 interface RequestsPageProps {
-  onCreateRequest?: () => void
-  onExportRequests?: () => void
-  onRefreshRequests?: () => void
-  onStatusChange?: (request: RequestListItem, status: RequestListStatus) => void
+  onCreateRequest?: () => void;
+  onExportRequests?: () => void;
+  onRefreshRequests?: () => void;
+  onStatusChange?: (
+    request: RequestListItem,
+    status: RequestListStatus,
+  ) => void;
+  onDeleteRequest?: (request: RequestListItem) => void;
 }
 
-export default function RequestsPage({ onCreateRequest, onExportRequests, onRefreshRequests, onStatusChange }: RequestsPageProps) {
-  const [requests, setRequests] = useState<RequestListItem[]>(demoRequests)
-  const [search, setSearch] = useState('billing')
-  const [showToast, setShowToast] = useState(true)
-  const [rowsPerPage, setRowsPerPage] = useState('20')
+export default function RequestsPage({
+  onCreateRequest,
+  onExportRequests,
+  onRefreshRequests,
+  onStatusChange,
+  onDeleteRequest,
+}: RequestsPageProps) {
+  const {
+    search,
+    status,
+    sortOrder,
+    page,
+    pageSize,
+    setSearch,
+    setStatus,
+    setSort,
+    setPage,
+    setPageSize,
+  } = useRequestsUrlState();
 
-  const handleStatusChange = (request: RequestListItem, status: RequestListStatus) => {
-    setRequests((current) => current.map((item) => item.id === request.id ? { ...item, status } : item))
-    onStatusChange?.(request, status)
-  }
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    isFetching,
+    isPlaceholderData,
+    refetch,
+  } = useRequestsQuery({
+    search,
+    status,
+    sortBy: "createdAt",
+    sortOrder,
+    page,
+    pageSize,
+  });
 
-  const handleResetFilters = () => setSearch('')
+  useClampPage({ data, currentPage: page, onPageChange: setPage });
 
-  return <div className="min-h-screen bg-[#faf8ff] font-sans text-[#131b2e] antialiased"><div className="mx-auto max-w-7xl p-6 md:p-8">
-    <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}><RequestsHeader onCreate={onCreateRequest} onExport={onExportRequests} onRefresh={onRefreshRequests} /></motion.div>
-    <AnimatePresence>{showToast && <motion.div initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }} className="mb-4 flex items-center justify-between gap-4 rounded-xl border-l-4 border-l-emerald-500 bg-white p-4 shadow-md"><div className="flex items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><RefreshCw className="h-4 w-4" /></div><div><p className="text-sm font-semibold">Status mutation synchronized with API</p><p className="text-xs text-[#434655]">REQ-1042 successfully updated from “Pending” to “In Progress”.</p></div></div><div className="flex items-center gap-2"><span className="font-mono text-xs text-[#737686]">HTTP 200 OK</span><Button variant="ghost" size="icon" onClick={() => setShowToast(false)} className="h-7 w-7"><X className="h-4 w-4" /></Button></div></motion.div>}</AnimatePresence>
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.05 }}><RequestsFilters search={search} onSearchChange={setSearch} onClear={handleResetFilters} /></motion.div>
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}><RequestListTable requests={requests} rowsPerPage={rowsPerPage} onStatusChange={handleStatusChange} onRowsPerPageChange={setRowsPerPage} /></motion.div>
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4, delay: 0.2 }}><RequestsAsyncStates onReset={handleResetFilters} /></motion.div>
-  </div></div>
+  const updateRequestMutation = useUpdateRequestMutation();
+  const pendingId = updateRequestMutation.isPending
+    ? updateRequestMutation.variables?.id
+    : undefined;
+
+  const deleteRequestMutation = useDeleteRequestMutation();
+  const deletingId = deleteRequestMutation.isPending
+    ? deleteRequestMutation.variables
+    : undefined;
+
+  const requests = useMemo(
+    () =>
+      (data?.data ?? []).map((item) =>
+        mapRequestToListItem(item, { pendingId }),
+      ),
+    [data, pendingId],
+  );
+
+  const handleStatusChange = useCallback(
+    (request: RequestListItem, newStatus: RequestListStatus) => {
+      const status = newStatus as RequestStatus;
+
+      updateRequestMutation.mutate(
+        { id: request.id, input: { status } },
+        {
+          onSuccess: () => onStatusChange?.(request, newStatus),
+        },
+      );
+    },
+    [updateRequestMutation, onStatusChange],
+  );
+
+  const handleDelete = useCallback(
+    (request: RequestListItem) => {
+      deleteRequestMutation.mutate(request.id, {
+        onSuccess: () => onDeleteRequest?.(request),
+      });
+    },
+    [deleteRequestMutation, onDeleteRequest],
+  );
+
+  const handleFilterStatusChange = useCallback(
+    (value: RequestStatus | "all") => {
+      setStatus(value === "all" ? "" : value);
+    },
+    [setStatus],
+  );
+
+  const handleSortChange = useCallback(
+    (value: "newest" | "oldest") => {
+      setSort("createdAt", value === "newest" ? "desc" : "asc");
+    },
+    [setSort],
+  );
+
+  const handleResetFilters = useCallback(() => {
+    setSearch("");
+    setStatus("");
+    setSort("createdAt", "desc");
+  }, [setSearch, setStatus, setSort]);
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+    onRefreshRequests?.();
+  }, [refetch, onRefreshRequests]);
+
+  const handleRowsPerPageChange = useCallback(
+    (value: string) => {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed) && parsed > 0) setPageSize(parsed);
+    },
+    [setPageSize],
+  );
+
+  const isEmpty = !isLoading && !isError && requests.length === 0;
+  const hasActiveFilters = !!search || !!status;
+  const totalPages = data?.meta.totalPages ?? 1;
+
+  return (
+    <div className="min-h-screen bg-[#faf8ff] font-sans text-[#131b2e] antialiased">
+      <div className="mx-auto max-w-7xl p-6 md:p-8">
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          <RequestsHeader
+            onCreate={onCreateRequest}
+            onExport={onExportRequests}
+            onRefresh={handleRefresh}
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.05 }}
+        >
+          <RequestFilters
+            search={search}
+            onSearch={setSearch}
+            status={status === "" ? "all" : status}
+            onStatus={handleFilterStatusChange}
+            sort={sortOrder === "asc" ? "oldest" : "newest"}
+            onSort={handleSortChange}
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+        >
+          {isLoading ? (
+            <RequestsAsyncStates status="loading" />
+          ) : isError ? (
+            <RequestsAsyncStates
+              status="error"
+              message={error?.message}
+              onRetry={() => refetch()}
+            />
+          ) : isEmpty ? (
+            <RequestsAsyncStates
+              status="empty"
+              hasActiveFilters={hasActiveFilters}
+              onReset={handleResetFilters}
+            />
+          ) : (
+            <RequestListTable
+              requests={requests}
+              rowsPerPage={String(pageSize)}
+              page={page}
+              totalPages={totalPages}
+              totalItems={data?.meta.total ?? 0}
+              deletingId={deletingId}
+              isRefreshing={isFetching && isPlaceholderData}
+              onStatusChange={handleStatusChange}
+              onDelete={handleDelete}
+              onPageChange={setPage}
+              onRowsPerPageChange={handleRowsPerPageChange}
+            />
+          )}
+        </motion.div>
+      </div>
+    </div>
+  );
 }

@@ -3,91 +3,88 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function RequestsAsyncStates({ onReset }: { onReset: () => void }) {
-  return (
-    <section className="mb-12 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-[#737686]" />
-          <h2 className="text-base font-semibold">
-            Async State Previews & Edge Cases
-          </h2>
-        </div>
-        <span className="rounded-lg bg-[#f2f3ff] px-2 py-1 text-xs font-semibold">
-          Interactive Sandboxes
-        </span>
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="border-[#e2e8f0]/50 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#2563eb]" />
-              Non-blocking Skeleton State
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 text-xs text-[#434655]">
-              Preserves table grid layout while background refetch completes.
-            </p>
-            <div className="space-y-3">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-4 w-2/3" />
-            </div>
-            <div className="mt-4 flex justify-between border-t border-[#e2e8f0] pt-3 font-mono text-xs text-[#737686]">
-              <span>Stale time: 30000ms</span>
-              <span className="text-emerald-600">Cache Active</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="flex flex-col items-center justify-center border-[#e2e8f0]/50 p-6 text-center shadow-sm">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#e2e7ff] text-[#737686]">
-            <Filter className="h-5 w-5" />
+type RequestsAsyncStatesProps =
+  | { status: "loading" }
+  | { status: "error"; message?: string; onRetry: () => void }
+  | { status: "empty"; hasActiveFilters: boolean; onReset: () => void };
+
+
+export function RequestsAsyncStates(props: RequestsAsyncStatesProps) {
+  if (props.status === "loading") {
+    return (
+      <Card className="mb-8 border-[#e2e8f0]/50 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-1.5 text-sm">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[#2563eb]" />
+            Loading requests...
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-1/2" />
           </div>
-          <h3 className="text-sm font-semibold">No Requests Found</h3>
-          <p className="mt-1 max-w-xs text-xs text-[#434655]">
-            No records match the current filter stack.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onReset}
-            className="mt-4 h-8 text-[#2563eb]"
-          >
-            Reset Filter Stack
-          </Button>
-        </Card>
-        <Card className="border-[#e2e8f0]/50 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm text-red-600">
-              <AlertCircle className="h-4 w-4" />
-              Optimistic Rollback Handler
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-3 text-xs text-[#434655]">
-              Simulates immediate state restoration upon remote rejection.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (props.status === "error") {
+    return (
+      <Card className="mb-8 border-[#e2e8f0]/50 shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-1.5 text-sm text-red-600">
+            <AlertCircle className="h-4 w-4" />
+            Failed to load requests
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-red-100 bg-red-50 p-2.5">
+            <p className="text-xs font-semibold text-red-800">
+              {props.message ??
+                "An unexpected error occurred while loading the orders."}
             </p>
-            <div className="rounded-lg border border-red-100 bg-red-50 p-2.5">
-              <p className="text-xs font-semibold text-red-800">
-                Failed to update status on REQ-1035
-              </p>
-              <p className="mt-0.5 text-xs text-red-600">
-                Optimistic state rolled back. Snapshot restored.
-              </p>
-            </div>
-            <div className="mt-4 flex justify-between border-t border-[#e2e8f0] pt-3">
-              <span className="font-mono text-xs text-[#737686]">
-                useMutation(onError)
-              </span>
-              <button className="text-xs font-semibold text-[#2563eb] hover:underline">
-                Simulate Failure
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-4 flex justify-end border-t border-[#e2e8f0] pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={props.onRetry}
+              className="h-8 text-[#2563eb]"
+            >
+              Try again{" "}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // status === "empty"
+  return (
+    <Card className="mb-8 flex flex-col items-center justify-center border-[#e2e8f0]/50 p-10 text-center shadow-sm">
+      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#e2e7ff] text-[#737686]">
+        <Filter className="h-5 w-5" />
       </div>
-    </section>
+      <h3 className="text-sm font-semibold">No Requests Found</h3>
+      <p className="mt-1 max-w-xs text-xs text-[#434655]">
+        {props.hasActiveFilters
+          ? "No records match the current filter stack."
+          : "No requests yet."}
+      </p>
+      {props.hasActiveFilters && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={props.onReset}
+          className="mt-4 h-8 text-[#2563eb]"
+        >
+          Reset Filter Stack
+        </Button>
+      )}
+    </Card>
   );
 }

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { ChevronDown, MoreHorizontal, RefreshCw } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronDown, RefreshCw, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,14 +27,21 @@ import type {
   RequestListItem,
   RequestListStatus,
 } from "@/features/requests/types/request-list.types";
+import { RequestPagination } from "./RequestPagination";
 
 interface RequestListTableProps {
   requests: RequestListItem[];
   rowsPerPage: string;
+  page: number;
+  totalPages: number;
+  totalItems: number;
+  deletingId?: string;
+  isRefreshing?: boolean;
   onStatusChange?: (
     request: RequestListItem,
     status: RequestListStatus,
   ) => void;
+  onDelete?: (request: RequestListItem) => void;
   onPageChange?: (page: number) => void;
   onRowsPerPageChange: (value: string) => void;
 }
@@ -41,13 +49,29 @@ interface RequestListTableProps {
 export function RequestListTable({
   requests,
   rowsPerPage,
+  page,
+  totalPages,
+  totalItems,
+  deletingId,
+  isRefreshing = false,
   onStatusChange,
+  onDelete,
   onPageChange,
   onRowsPerPageChange,
 }: RequestListTableProps) {
+  const size = Number(rowsPerPage) || 20;
+  const from = totalItems === 0 ? 0 : (page - 1) * size + 1;
+  const to = Math.min(page * size, totalItems);
+
   return (
     <section className="mb-8 overflow-hidden rounded-xl border border-[#e2e8f0]/40 bg-white shadow-sm">
-      <div className="overflow-x-auto">
+      <div
+        className={cn(
+          "overflow-x-auto transition-opacity",
+          isRefreshing && "pointer-events-none opacity-60",
+        )}
+        aria-busy={isRefreshing}
+      >
         <Table>
           <TableHeader>
             <TableRow className="border-b border-[#e2e8f0] bg-[#f2f3ff] hover:bg-[#f2f3ff]">
@@ -78,17 +102,41 @@ export function RequestListTable({
                 key={request.id}
                 request={request}
                 index={index}
+                isDeleting={deletingId === request.id}
                 onStatusChange={onStatusChange}
+                onDelete={onDelete}
               />
             ))}
           </TableBody>
         </Table>
       </div>
-      <RequestPagination
-        rowsPerPage={rowsPerPage}
-        onPageChange={onPageChange}
-        onRowsPerPageChange={onRowsPerPageChange}
-      />
+
+      <div className="flex flex-col gap-2 bg-white">
+        <div className="flex flex-col items-center justify-between gap-3 px-4 pt-3 sm:flex-row">
+          <span className="text-sm text-[#434655]">
+            Showing <strong className="text-[#131b2e]">{from}</strong> to{" "}
+            <strong className="text-[#131b2e]">{to}</strong> of{" "}
+            <strong className="text-[#131b2e]">{totalItems}</strong> requests
+          </span>
+          <label className="flex items-center gap-2 text-sm text-[#434655]">
+            Rows per page:
+            <select
+              value={rowsPerPage}
+              onChange={(event) => onRowsPerPageChange(event.target.value)}
+              className="h-8 rounded-md border border-slate-200 bg-white px-2"
+            >
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+        <RequestPagination
+          page={page}
+          pageCount={totalPages}
+          onPageChange={(p) => onPageChange?.(p)}
+        />
+      </div>
     </section>
   );
 }
@@ -96,44 +144,56 @@ export function RequestListTable({
 function RequestRow({
   request,
   index,
+  isDeleting,
   onStatusChange,
+  onDelete,
 }: {
   request: RequestListItem;
   index: number;
+  isDeleting: boolean;
   onStatusChange?: (
     request: RequestListItem,
     status: RequestListStatus,
   ) => void;
+  onDelete?: (request: RequestListItem) => void;
 }) {
   const status = statusConfig[request.status];
   const priority = priorityConfig[request.priority];
   const StatusIcon = status.icon;
   const PriorityIcon = priority.icon;
+  const navigate = useNavigate();
+
   return (
     <motion.tr
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.25, delay: 0.05 * index }}
+      onClick={() => navigate(`/requests/${request.id}`)}
       className={cn(
         "group cursor-pointer border-b border-[#f1f5f9] transition-colors hover:bg-[#f8fafc]",
         request.isOptimistic && "bg-blue-50/40",
         request.status === "cancelled" && "opacity-75",
+        isDeleting && "opacity-50",
       )}
     >
-      <TableCell className="text-center">
+      <TableCell
+        className="text-center"
+        onClick={(event) => event.stopPropagation()}
+      >
         <Checkbox />
       </TableCell>
       <TableCell>
         <div className="flex min-w-0 flex-col">
-          <a
-            href={`#/requests/${request.id}`}
+          <Link
+            to={`/requests/${request.id}`}
+            onClick={(event) => event.stopPropagation()}
             className={cn(
               "truncate text-sm font-semibold transition-colors hover:text-[#2563eb]",
               request.status === "cancelled" && "line-through",
             )}
           >
             {request.title}
-          </a>
+          </Link>
           <div className="mt-0.5 flex items-center gap-1.5">
             <span className="font-mono text-xs font-medium text-[#2563eb]">
               {request.id}
@@ -143,7 +203,7 @@ function RequestRow({
           </div>
         </div>
       </TableCell>
-      <TableCell>
+      <TableCell onClick={(event) => event.stopPropagation()}>
         {request.status === "updating" ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e2e7ff] px-2.5 py-1 font-mono text-xs text-[#434655]">
             <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#2563eb]" />
@@ -230,78 +290,24 @@ function RequestRow({
         )}
       </TableCell>
       <TableCell className="text-right">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-[#737686]">
-          <MoreHorizontal className="h-4 w-4" />{" "}
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={isDeleting}
+          aria-label="Delete request"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete?.(request);
+          }}
+          className="h-8 w-8 text-[#737686] hover:bg-red-50 hover:text-red-600"
+        >
+          {isDeleting ? (
+            <RefreshCw className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
         </Button>
       </TableCell>
     </motion.tr>
-  );
-}
-
-function RequestPagination({
-  rowsPerPage,
-  onPageChange,
-  onRowsPerPageChange,
-}: {
-  rowsPerPage: string;
-  onPageChange?: (page: number) => void;
-  onRowsPerPageChange: (value: string) => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-between gap-3 border-t border-[#e2e8f0] bg-white px-4 py-3 sm:flex-row">
-      <span className="text-sm text-[#434655]">
-        Showing <strong className="text-[#131b2e]">1</strong> to{" "}
-        <strong className="text-[#131b2e]">{rowsPerPage}</strong> of{" "}
-        <strong className="text-[#131b2e]">128</strong> requests
-      </span>
-      <div className="flex items-center gap-1">
-        <Button variant="outline" size="sm" className="h-8 px-2.5" disabled>
-          Prev
-        </Button>
-        {[1, 2, 3].map((page) => (
-          <Button
-            key={page}
-            variant={page === 1 ? "default" : "outline"}
-            size="sm"
-            onClick={() => onPageChange?.(page)}
-            className={cn(
-              "h-8 w-8",
-              page === 1 && "bg-[#2563eb] text-white hover:bg-[#1d4ed8]",
-            )}
-          >
-            {page}
-          </Button>
-        ))}
-        <span className="px-1 text-sm text-[#737686]">…</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange?.(7)}
-          className="h-8 w-8"
-        >
-          7
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange?.(2)}
-          className="h-8 px-2.5"
-        >
-          Next
-        </Button>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-[#434655]">
-        Rows per page:
-        <select
-          value={rowsPerPage}
-          onChange={(event) => onRowsPerPageChange(event.target.value)}
-          className="h-8 rounded-md border border-slate-200 bg-white px-2"
-        >
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-        </select>
-      </label>
-    </div>
   );
 }
