@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
-import "/index.css"
+import "./index.css"
 async function enableMocking() {
 
   const { worker } = await import("./mocks/browser");
