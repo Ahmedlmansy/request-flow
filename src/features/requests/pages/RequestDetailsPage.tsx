@@ -1,5 +1,10 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import {
+  useBlocker,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
@@ -24,11 +29,12 @@ function toFormValues(request: Request): RequestDetailValues {
   };
 }
 
-type DiscardIntent = "reset" | "leave" | null;
+type DiscardIntent = "reset" | null;
 
 export default function RequestDetailsPage() {
   const { requestId } = useParams<{ requestId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { data, isLoading, isError, error, dataUpdatedAt, refetch } =
     useRequestQuery(requestId);
@@ -38,20 +44,23 @@ export default function RequestDetailsPage() {
   const [originalValues, setOriginalValues] =
     useState<RequestDetailValues | null>(null);
   const [discardIntent, setDiscardIntent] = useState<DiscardIntent>(null);
+  const previousRequestId = useRef(requestId);
 
   const hasUnsavedChanges =
     values !== null &&
     originalValues !== null &&
     JSON.stringify(values) !== JSON.stringify(originalValues);
+  const blocker = useBlocker(hasUnsavedChanges);
 
   useEffect(() => {
-    if (!data) return;
-    if (hasUnsavedChanges) return;
+    if (!data || data.id !== requestId) return;
+    const changedRequest = previousRequestId.current !== requestId;
+    if (hasUnsavedChanges && !changedRequest) return;
+    previousRequestId.current = requestId;
     const fresh = toFormValues(data);
     setValues(fresh);
     setOriginalValues(fresh);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [data, hasUnsavedChanges, requestId]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) return;
@@ -99,15 +108,10 @@ export default function RequestDetailsPage() {
     );
   };
 
-  const goToRequestsList = () => navigate("/");
+  const goToRequestsList = () =>
+    navigate({ pathname: "/", search: location.search });
 
-  const handleBack = () => {
-    if (hasUnsavedChanges) {
-      setDiscardIntent("leave");
-    } else {
-      goToRequestsList();
-    }
-  };
+  const handleBack = () => goToRequestsList();
 
   const handleCancel = () => {
     if (hasUnsavedChanges) {
@@ -118,19 +122,21 @@ export default function RequestDetailsPage() {
   };
 
   const handleDiscard = () => {
-    if (originalValues) setValues(originalValues);
-    const intent = discardIntent;
+    if (discardIntent === "reset" && originalValues) {
+      setValues(originalValues);
+    }
     setDiscardIntent(null);
-    if (intent === "leave") goToRequestsList();
+    if (blocker.state === "blocked") blocker.proceed();
+  };
+
+  const closeDiscardDialog = () => {
+    setDiscardIntent(null);
+    if (blocker.state === "blocked") blocker.reset();
   };
 
   if (!requestId) return null;
 
-  if (isLoading || !values || !originalValues) {
-    return <DetailsSkeleton />;
-  }
-
-  if (isError || !data) {
+  if (isError && !data) {
     return (
       <DetailsError
         message={error?.message}
@@ -138,6 +144,10 @@ export default function RequestDetailsPage() {
         onBack={goToRequestsList}
       />
     );
+  }
+
+  if (isLoading || !data || !values || !originalValues) {
+    return <DetailsSkeleton />;
   }
 
   return (
@@ -185,9 +195,9 @@ export default function RequestDetailsPage() {
       </div>
 
       <DiscardChangesDialog
-        open={discardIntent !== null}
+        open={discardIntent !== null || blocker.state === "blocked"}
         requestId={requestId}
-        onOpenChange={(open) => !open && setDiscardIntent(null)}
+        onOpenChange={(open) => !open && closeDiscardDialog()}
         onDiscard={handleDiscard}
       />
     </div>

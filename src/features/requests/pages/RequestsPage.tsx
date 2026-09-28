@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useRequestsUrlState } from "@/features/requests/hooks/useRequestsUrlState";
 import { useRequestsQuery } from "@/features/requests/hooks/useRequestsQuery";
@@ -39,15 +39,32 @@ export default function RequestsPage({
   const {
     search,
     status,
+    priority,
+    owner,
+    sortBy,
     sortOrder,
     page,
     pageSize,
     setSearch,
     setStatus,
+    setPriority,
+    setOwner,
     setSort,
     setPage,
     setPageSize,
   } = useRequestsUrlState();
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [debouncedOwner, setDebouncedOwner] = useState(owner);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedOwner(owner), 300);
+    return () => window.clearTimeout(timeout);
+  }, [owner]);
 
   const {
     data,
@@ -58,9 +75,11 @@ export default function RequestsPage({
     isPlaceholderData,
     refetch,
   } = useRequestsQuery({
-    search,
-    status,
-    sortBy: "createdAt",
+    search: debouncedSearch,
+    status: status || undefined,
+    priority: priority || undefined,
+    owner: debouncedOwner || undefined,
+    sortBy,
     sortOrder,
     page,
     pageSize,
@@ -116,6 +135,11 @@ export default function RequestsPage({
     [setStatus],
   );
 
+  const handleFilterPriorityChange = useCallback(
+    (value: typeof priority) => setPriority(value),
+    [setPriority],
+  );
+
   const handleSortChange = useCallback(
     (value: "newest" | "oldest") => {
       setSort("createdAt", value === "newest" ? "desc" : "asc");
@@ -126,8 +150,10 @@ export default function RequestsPage({
   const handleResetFilters = useCallback(() => {
     setSearch("");
     setStatus("");
+    setPriority("");
+    setOwner("");
     setSort("createdAt", "desc");
-  }, [setSearch, setStatus, setSort]);
+  }, [setSearch, setStatus, setPriority, setOwner, setSort]);
 
   const handleRefresh = useCallback(() => {
     refetch();
@@ -143,7 +169,7 @@ export default function RequestsPage({
   );
 
   const isEmpty = !isLoading && !isError && requests.length === 0;
-  const hasActiveFilters = !!search || !!status;
+  const hasActiveFilters = !!search || !!status || !!priority || !!owner;
   const totalPages = data?.meta.totalPages ?? 1;
 
   return (
@@ -171,6 +197,10 @@ export default function RequestsPage({
             onSearch={setSearch}
             status={status === "" ? "all" : status}
             onStatus={handleFilterStatusChange}
+            priority={priority}
+            onPriority={handleFilterPriorityChange}
+            owner={owner}
+            onOwner={setOwner}
             sort={sortOrder === "asc" ? "oldest" : "newest"}
             onSort={handleSortChange}
           />

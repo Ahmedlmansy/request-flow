@@ -48,13 +48,7 @@ export function mapRequestToListItem(
     // لو محتاج قيمة حقيقية: ضيف department: string لـ Request type،
     // وللـ mock data، وبعدين استبدل السطر ده بـ request.department.
     department: "—",
-    // وقت الـ mutation شغالة على الصف ده، بنعرض "updating" بدل الحالة
-    // الحقيقية عشان RequestListTable بيعمل لها special UI (spinner)
-    // — ده منفصل تمامًا عن الـ optimistic value المكتوب فعليًا في كاش
-    // TanStack Query (اللي فيه الحالة الجديدة الصح لأي مستهلك تاني).
-    status: isPending
-      ? ("updating" as RequestListStatus)
-      : (request.status as RequestListStatus),
+    status: request.status as RequestListStatus,
     priority: request.priority,
     owner: {
       name: request.owner,

@@ -7,8 +7,8 @@ RequestFlow is a React + TypeScript dashboard for browsing and updating operatio
 The application presents a request management workspace where users can:
 
 - browse a paginated request list
-- search and filter by status and owner
-- sort the list by creation or update time
+- search and filter by status, priority, and owner
+- sort the list by creation time, with sort state retained in the URL
 - open a details page to inspect and edit fields
 - update request status directly from the list
 - retry failed loads and mutations
@@ -38,14 +38,15 @@ The current codebase implements the following requirements:
 
 - Request list rendering and navigation to detail pages
 - Search by title and request ID
-- Status filtering
+- Status, priority, and owner filtering
 - Sort by creation/update time
 - Pagination with page size selection
-- URL synchronization for search, status, sort, page, and page size
+- URL synchronization for search, status, priority, owner, sort, page, and page size
+- Debounced search and owner-filter requests while keeping URL state immediate
 - Refresh preserving list state through URL parameters
 - Request detail page with editable fields and save actions
 - Save success and error feedback
-- Unsaved-change protection on navigation and before page unload
+- Unsaved-change protection for in-app navigation and before page unload
 - Optimistic status updates from the list
 - Rollback of list cache on mutation failure
 - Loading, error, and empty list states
@@ -66,10 +67,10 @@ The project uses the following technologies that are actually present in the cod
 - TanStack Query — server-state caching, refetching, mutation lifecycle, and optimistic updates
 - Axios — HTTP client configured against the mock API base URL
 - Zod — schema definitions for request-related types and validation contracts
-- MSW (Mock Service Worker) — mock API layer in development and test contexts
+- MSW (Mock Service Worker) — mock API layer during development
 - Tailwind CSS — styling system and utility classes
 - shadcn/ui-inspired components — reusable UI primitives such as dialogs, buttons, tables, inputs, and selects
-- Vitest and Testing Library — configured for UI testing; the project includes test tooling but not a populated test suite
+- Vitest and Testing Library — behavior tests for URL state, route blocking, query races, detail errors, and mutation rollback
 
 ## Architecture
 
@@ -348,7 +349,14 @@ test: {
 }
 ```
 
-The repo’s current state includes the testing toolchain, but no actual test files were present in the workspace when reviewed. That means there is no concrete automated coverage for flows such as list rendering, URL state sync, optimistic updates, form save success/rollback, or background refresh in the current implementation.
+The suite in `src/features/requests/requests.behavior.test.tsx` covers:
+
+- the detail error state after the initial request fails
+- blocking browser-style back navigation while the detail form is dirty
+- loading a different request after confirming a blocked navigation
+- preserving URL filters and resetting pagination when filters change
+- keeping the active result when an older query response resolves later
+- rolling an optimistic status update back when the API rejects
 
 The project does include the dependencies needed for this work, and the command to run the suite is:
 
@@ -406,50 +414,51 @@ No secret or production credentials are required for the current mock setup.
 6. Rollback is handled by restoring previous query cache entries in `onError` for all list query keys affected by the mutation.
 7. Background refresh works through `refetchInterval`, but it intentionally avoids a full-page blocking spinner so the user remains focused on the active page and the current filters remain intact.
 8. The app relies on React Query query keys and `cancelQueries`/`invalidateQueries` to reduce stale state conflicts and keep cache data aligned with the server.
-9. Unsaved changes are protected by a `beforeunload` event listener and a confirmation dialog when the user tries to leave the detail page.
-10. Unnecessary UI churn is reduced by using query keys to preserve list state and by using placeholder data during refetch so the interface remains stable.
+9. Unsaved changes are protected by React Router's blocker for in-app navigation and a `beforeunload` listener for refresh/close.
+10. Search and owner requests are debounced for 300ms while their URL state updates immediately.
+11. Lazy-loaded routes and development-only MSW reduce production JavaScript shipped to the browser.
 
 ## Assignment Requirement vs Implementation
 
 | Requirement | Status | Implementation |
 | --- | --- | --- |
 | Search | Implemented | URL-backed search in the list page with `useRequestsUrlState` and `useRequestsQuery` |
-| Filtering | Implemented | status filter is applied on the list query with query params |
-| Sorting | Implemented | sort by created/updated time and URL persistence |
+| Filtering | Implemented | status, priority, and owner filters are applied through URL-backed query params |
+| Sorting | Implemented | visible created-time sort and URL/API sort fields |
 | Pagination | Implemented | paginated list and page size selector |
 | URL persistence | Implemented | search/filter/sort/page state stored in the query string |
 | Refresh preserving state | Implemented | list state is reconstructed from URL params |
 | Shareable URL state | Implemented | URL reflects the current filters/sort/page |
 | Slow API handling | Implemented | mock network delay via `simulateNetwork()` |
 | Failure handling | Implemented | mock API failures injected with random probability |
-| Out-of-order responses | Partial | query caching and placeholder data reduce visible conflict; no custom request-ordering logic is implemented |
+| Out-of-order responses | Implemented | distinct query keys keep older results in their own cache entry; a regression test covers late responses |
 | Optimistic status update | Implemented | list status mutation updates cache before API completes |
 | Rollback on failure | Implemented | previous query data is restored in `onError` |
 | Detail page view | Implemented | view request metadata and edit fields |
 | Save changes | Implemented | patch request mutation and success toast |
 | Save errors | Implemented | mutation error toast and local change retention |
-| Unsaved changes protection | Implemented | dialog + `beforeunload` guard |
+| Unsaved changes protection | Implemented | route blocker dialog + `beforeunload` guard |
 | Background refresh | Implemented | 30-second refetch interval with preserved list state |
 | Loading states | Implemented | skeleton and async-state cards |
 | Error states | Implemented | list/detail error views and retry actions |
 | Empty states | Implemented | empty results card with reset option |
 | Mock API | Implemented | MSW handlers and generated mock data |
-| Test coverage | Not implemented | tooling configured, but no actual tests were present in the repo |
+| Test coverage | Implemented | behavior tests cover URL state, error UI, navigation blocking, late responses, and rollback |
 
 ## Known Limitations
 
 The implementation is functional for the assignment scope, but some items are only partially satisfied or intentionally simplified:
 
 - There is no real form validation layer using React Hook Form + Zod. The detail form uses local state only.
-- There is no actual test suite in the current repository, despite the Vitest configuration being present.
-- The project does not implement a full “owner” or “priority” filter UI beyond the existing status filter and the `owner` URL parameter support in the API layer.
-- The app does not expose explicit environment configuration for API hosts or feature flags; it assumes a local mock layer running via MSW.
+- The detail form has no runtime schema validation; it uses local state and typed controls.
+- Create Request and Export CSV are still presentation-only actions.
+- The app does not expose explicit environment configuration for API hosts or feature flags. MSW runs in development; production requires a real service at `/api`.
 - The optimistic update pattern is implemented for list status changes, not for every detail field change.
 - The mock API is intentionally probabilistic and may produce failures; the app is designed around that behavior but not a production-grade backend contract.
 
 ## Development Notes
 
-- The app starts with MSW in `src/main.tsx` before mounting the React app.
+- In development, `src/main.tsx` starts MSW before mounting the React app. Production builds do not include the worker and require a real `/api` service.
 - The mock API runs under `/api` and is designed to fail randomly, so the UI should be checked with a few reloads or repeated actions to see retry and rollback flows.
 - The request list is driven primarily by URL state. If you need to debug list state, check the browser query string as the source of truth.
 - Background polling is intentionally conservative and does not force a full re-render or reset the current view.

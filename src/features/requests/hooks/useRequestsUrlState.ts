@@ -8,7 +8,7 @@ import {
   parseSortOrder,
   parseStatus,
 } from "./requestsUrlState.helpers";
-import type { GetRequestsParams } from "../api/requests.types";
+import type { GetRequestsParams, RequestPriority } from "../api/requests.types";
 
 export function useRequestsUrlState() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,8 +79,8 @@ const state: RequestFiltersState = useMemo(
   );
 
   const setPriority = useCallback(
-    (value: GetRequestsParams["priority"]) =>
-      updateParams({ priority: value }, { resetPage: true }),
+    (value: RequestPriority | "") =>
+      updateParams({ priority: value || undefined }, { resetPage: true }),
     [updateParams],
   );
 

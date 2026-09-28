@@ -122,8 +122,6 @@ export const requestsHandlers = [
 
     return HttpResponse.json(requests[index], { headers: NO_CACHE_HEADERS });
   }),
-];
-
 
   http.delete("/api/requests/:id", async ({ params }) => {
     await simulateNetwork({ failureRate: 0.15 });
@@ -143,5 +141,7 @@ export const requestsHandlers = [
       { id: params.id as string },
       { headers: NO_CACHE_HEADERS },
     );
-  })
+  }),
+];
  
+

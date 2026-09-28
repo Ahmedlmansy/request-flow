@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, RefreshCw, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -122,6 +122,7 @@ export function RequestListTable({
               onChange={(event) => onRowsPerPageChange(event.target.value)}
               className="h-8 rounded-md border border-slate-200 bg-white px-2"
             >
+              <option value="10">10</option>
               <option value="20">20</option>
               <option value="50">50</option>
               <option value="100">100</option>
@@ -157,13 +158,15 @@ function RequestRow({
   const status = statusConfig[request.status];
   const StatusIcon = status.icon;
   const navigate = useNavigate();
+  const location = useLocation();
+  const detailsPath = `/requests/${request.id}${location.search}`;
 
   return (
     <motion.tr
       initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.25, delay: 0.05 * index }}
-      onClick={() => navigate(`/requests/${request.id}`)}
+      onClick={() => navigate(detailsPath)}
       className={cn(
         "group cursor-pointer border-b border-[#f1f5f9] transition-colors hover:bg-[#f8fafc]",
         request.isOptimistic && "bg-blue-50/40",
@@ -180,7 +183,7 @@ function RequestRow({
       <TableCell>
         <div className="flex min-w-0 flex-col">
           <Link
-            to={`/requests/${request.id}`}
+            to={detailsPath}
             onClick={(event) => event.stopPropagation()}
             className={cn(
               "truncate text-sm font-semibold transition-colors hover:text-[#2563eb]",
@@ -221,6 +224,12 @@ function RequestRow({
                   />
                 )}
                 {status.label}
+                {request.isOptimistic && (
+                  <RefreshCw
+                    aria-label="Saving status"
+                    className="h-3 w-3 animate-spin"
+                  />
+                )}
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
@@ -245,7 +254,9 @@ function RequestRow({
         )}
       </TableCell>
       <TableCell>
-
+        <span className="rounded px-2 py-1 text-xs font-semibold capitalize text-slate-700">
+          {request.priority}
+        </span>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">

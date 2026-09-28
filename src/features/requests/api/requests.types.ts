@@ -15,6 +15,8 @@ export const requestSortBySchema = z.enum([
   "updatedAt",
   "title",
   "priority",
+  "status",
+  "owner",
 ]);
 
 export const sortOrderSchema = z.enum(["asc", "desc"]);
